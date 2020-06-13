@@ -28,7 +28,7 @@ def clean_data(data, final_data=[]):
         data = data.replace("gonna", "going to")
         data = data.replace("n'", "ng")
         data = re.sub("[-()\"#/@;:<>{}`+=~|'.!?,]", '', data)
-        data = '<BOS> ' + data + ' <EOS>'
+        data = '<bos> ' + data + ' <eos>'
         data = data.replace("  ", " ")
         
         final_data.append(data)
