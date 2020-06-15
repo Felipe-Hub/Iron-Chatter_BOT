@@ -166,3 +166,43 @@ def tagged_n_grams(tagged_sent, n=4):
     assert len(X) == len(y) == len(X_tag) == len(y_tag)
     
     return ((X, y, X_rev, y_rev),(X_tag, y_tag, X_tag_rev, y_tag_rev))
+
+
+def unk_n_grams(tagged_sent, n=4):
+    """
+    This function takes a (sentence, tags) tuple:
+    ('Here is an example', 'tag1 tag2 tag3 tag4')
+    
+    Returns a list arrays, one array for each unknown word:
+    The first vector contains padded n-grams combinations (X).
+    The second vector is the reversed X (X_rev).
+    The third vector is the padded n_grams for the tags (X_tag).
+    The fourth vector is the reversed X_tag (X_tag_rev).
+    
+    All returned sequences are already pre-padded with 0.
+    The maximum length of the sequences is n-1, with n being the
+    number of n-grams determined in model trainning.
+    """
+    text = list(tagged_sent)[0]
+    tags = list(tagged_sent)[1]
+    
+    unk = [i for i, word in enumerate(text) if word=='<unk>']
+    
+    unknowns = []
+    
+    for i in unk:
+        
+        x = text[i+1:i+n+1][::-1]
+        x_tag = tags[i+1:i+n+1][::-1]
+        x_rev = text[::-1][i:i+n][::-1]
+        x_tag_rev = tags[::-1][i:i+n][::-1]
+        
+
+        X = [0]*(n-len(x)) + x
+        X_tag = [0]*(n-len(x_tag)) + x_tag
+        X_rev = [0]*(n-len(x_rev)) + x_rev
+        X_tag_rev = [0]*(n-len(x_tag_rev)) + x_tag_rev
+        
+        unknowns += [np.array([X, X_tag, X_rev, X_tag_rev])]
+        
+    return unknowns

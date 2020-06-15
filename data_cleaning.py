@@ -1,10 +1,13 @@
 import re
 
 
-def clean_data(data, final_data=[]):
+def clean_data(data):
+    """ Takes in a list of strings (sentences) and returns a list of cleaned strings (sentences). """
+    
+    final_data=[]
     
     for d in data:
-        data = d.lower()
+        data = d.lower().strip()
         data = data.replace('\\', '').replace('-', '')
         data = data.replace("i'm", "i am")
         data = data.replace("'re", " are")
@@ -26,6 +29,7 @@ def clean_data(data, final_data=[]):
         data = data.replace("'til", "until")
         data = data.replace("'cause", "because")
         data = data.replace("gonna", "going to")
+        data = data.replace("kinda", "kind of")
         data = data.replace("n'", "ng")
         data = re.sub("[-()\"#/@;:<>{}`+=~|'.!?,]", '', data)
         data = '<bos> ' + data + ' <eos>'

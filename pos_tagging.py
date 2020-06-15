@@ -96,7 +96,7 @@ def replace_unknown(sequence, vocab=training_vocab):
     return [w if w in vocab else 'nan' for w in sequence]
 
 
-def predict_this(data, model, total_failed=0, predicted_tags=[], failed_tags=[]):
+def predict_tags(data, model):
     """ **This function is not yet adjusted to predict unkown words by the model      **
         **Therefore, it will appoint the fails and discard sentences with unknown words**
     
@@ -105,24 +105,28 @@ def predict_this(data, model, total_failed=0, predicted_tags=[], failed_tags=[])
         'failed': returns a list with the sentences failed to predict
         '#fails': returns the total failed sentences   
     """
+    predicted_tags=[]
+    failed_tags=[]
+    total_failed=0
+    
     for sent in data:
         words = sent.split()
         try:
             _, state_path = model.viterbi(replace_unknown(words))
         except:
             total_failed += 1
-            failed_tags += [sent]
+            failed_tags.append(sent)
             state_path = None
         
         if state_path != None:
             pred_tags = ['<start>'] + [state[1].name for state in state_path[2:-2]] + ['<end>']
-            predicted_tags += [(sent, ' '.join(pred_tags))]
+            predicted_tags.append((sent, ' '.join(pred_tags)))
             
         else:
             total_failed += 1
-            failed_tags += [sent]
+            failed_tags.append(sent)
                     
-    return {'tags': predicted_tags, 'failed':failed_tags, '#fails': total_failed} 
+    return {'tagged': predicted_tags, 'failed':failed_tags, '#fails': total_failed} 
 
 
 def my_accuracy(X, Y, model, training_vocab):
