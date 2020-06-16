@@ -1,4 +1,5 @@
 import numpy as np
+from pos_tagging import predict_tags
 
 def n_grams(enc_sent, n=4):
     """
@@ -168,7 +169,7 @@ def tagged_n_grams(tagged_sent, n=4):
     return ((X, y, X_rev, y_rev),(X_tag, y_tag, X_tag_rev, y_tag_rev))
 
 
-def unk_n_grams(tagged_sent, n=4):
+def unknown_words_X(tagged_sent, n=3):
     """
     This function takes a (sentence, tags) tuple:
     ('Here is an example', 'tag1 tag2 tag3 tag4')
@@ -181,10 +182,9 @@ def unk_n_grams(tagged_sent, n=4):
     
     All returned sequences are already pre-padded with 0.
     The maximum length of the sequences is n-1, with n being the
-    number of n-grams determined in model trainning.
+    desired number of n-grams.
     """
-    text = list(tagged_sent)[0]
-    tags = list(tagged_sent)[1]
+    text, tags = tagged_sent
     
     unk = [i for i, word in enumerate(text) if word=='<unk>']
     
@@ -194,15 +194,99 @@ def unk_n_grams(tagged_sent, n=4):
         
         x = text[i+1:i+n+1][::-1]
         x_tag = tags[i+1:i+n+1][::-1]
-        x_rev = text[::-1][i:i+n][::-1]
-        x_tag_rev = tags[::-1][i:i+n][::-1]
+        x_rev = text[::-1][i+1:i+n][::-1]
+        x_tag_rev = tags[::-1][i+1:i+n][::-1]
         
-
-        X = [0]*(n-len(x)) + x
-        X_tag = [0]*(n-len(x_tag)) + x_tag
-        X_rev = [0]*(n-len(x_rev)) + x_rev
-        X_tag_rev = [0]*(n-len(x_tag_rev)) + x_tag_rev
+        for pos,num in enumerate(x):
+            if num=='<unk>':
+                x[pos] = 0
+        for pos,num in enumerate(x_tag):
+            if num=='<unk>':
+                x_tag[pos] = 0
+        for pos,num in enumerate(x_rev):
+            if num=='<unk>':
+                x_rev[pos] = 0
+        for pos,num in enumerate(x_tag_rev):
+            if num=='<unk>':
+                x_tag_rev[pos] = 0
+            
+        X = [[0]*(n-len(x)) + x]
+        X_tag = [[0]*(n-len(x_tag)) + x_tag]
+        X_rev = [[0]*(n-len(x_rev)) + x_rev]
+        X_tag_rev = [[0]*(n-len(x_tag_rev)) + x_tag_rev]
         
-        unknowns += [np.array([X, X_tag, X_rev, X_tag_rev])]
+        unknowns += [[np.array(X), np.array(X_tag), np.array(X_rev), np.array(X_tag_rev)]]
         
     return unknowns
+
+
+def check_and_predict(sent, tk_text, tk_tags, hmm_model, oov_model, max_length): 
+    """
+    This function takes a string and returns it encoded and pos-tagged on a tuple.
+    Also, verifies if there are unknown words in the sentence, replacing unknown
+    words for the word predicted by the 'oov_model'.
+    """
+    # predict and encode preliminary tags
+    tags = predict_tags([sent], hmm_model)['tagged'][0][1]
+    dec_tags = tk_tags.texts_to_sequences([tags])
+    
+    checked_sentence = list()
+    unknown_words = list()
+    # check for unknown words in the vocabulary
+    for i, word in enumerate(sent.split()):
+        if word not in tk_text.word_index:
+            checked_sentence.append('<unk>')
+            unknown_words.append(word)
+        else:
+            checked_sentence.append(tk_text.word_index[word])
+    print('Encoded sentence:', checked_sentence)    
+    
+    # if there is no unknown words, return tagged and encoded sentences
+    if '<unk>' not in checked_sentence:
+        print("You do not need to go further, all words are in vocabulary!")
+        return (checked_sentence, dec_tags[0])
+    
+    # check if there are enough known words for good prediction
+    elif len(unknown_words)+1 >= len(checked_sentence)/2:
+        print("Sorry, don't know what you mean with:", ' '.join(unknown_words))
+        return (None,None)
+    
+    # else, predict the word and return tagged and encoded sentences
+    else:
+        
+        # reversed dictionary to find word by their sequence code
+        seq2word_map = dict(map(reversed, tk_text.word_index.items()))
+
+        # keeping the same n-grams as trained data
+        n = max_length
+
+        # prepare input for model (X)
+        tagged = (checked_sentence, dec_tags[0])
+        # X will be the sequence of n words before and after the unknown word
+        X = unknown_words_X(tagged, n)
+       
+        pred_position = list()
+        # calculate the word probabilities
+        for i in X:
+            prob_vec = oov_model.predict(i)
+            y_hat = np.argmax(prob_vec) # get index with highest probability
+            pred_position.append(y_hat)
+        
+        predicted = list()
+        j = 0
+        # replace unknown words for the word in the vocabulary with highest similarity 
+        for unk in checked_sentence:
+            if unk == '<unk>':
+                word = seq2word_map[pred_position[j]]
+                j+=1
+            else:
+                word = seq2word_map[unk]
+            predicted.append(word)
+        predicted = ' '.join(predicted)
+        print('Sentence with replaced unknown words:', predicted[5:-5])
+        # predict actual tags for replaced words
+        tags = predict_tags([predicted], hmm_model)['tagged'][0][1]
+        dec_sentence = tk_text.texts_to_sequences([predicted])
+        dec_tags = tk_tags.texts_to_sequences([tags])
+
+        return (dec_sentence[0], dec_tags[0])
