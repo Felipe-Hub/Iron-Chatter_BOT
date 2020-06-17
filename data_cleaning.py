@@ -7,8 +7,11 @@ def clean_data(data):
     final_data=[]
     
     for d in data:
-        data = d.lower().strip()
+        data = d.lower().strip().strip('.')
+        data = data.replace(' \' ', ' \' ').replace("\"", " \" ").replace("‘", " ‘ ").replace("’", " ’ ")
         data = data.replace('\\', '').replace('-', '')
+        data = data.replace(',', ' ,')
+        data = data.replace('.', ' ,')
         data = data.replace("i'm", "i am")
         data = data.replace("'re", " are")
         data = data.replace("he's", "he is")
@@ -31,7 +34,7 @@ def clean_data(data):
         data = data.replace("gonna", "going to")
         data = data.replace("kinda", "kind of")
         data = data.replace("n'", "ng")
-        data = re.sub("[-()\"#/@;:<>{}`+=~|'.!?,]", '', data)
+        data = re.sub("[-()#/@;:<>{}`+=~|.!?]", '', data)
         data = '<bos> ' + data + ' <eos>'
         data = data.replace("  ", " ")
         
